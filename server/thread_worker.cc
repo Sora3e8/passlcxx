@@ -12,6 +12,7 @@
 #include <uchar.h>
 #include <unistd.h>
 #include <utility>
+#include <zlib.h>
 
 namespace passl
 {
@@ -114,6 +115,20 @@ namespace passl
 
     if (rec_size != 10)
     {
+      remove_client(client.fd);
+      return;
+    }
+
+    // crc32 local setup
+    uint32_t crc_local = crc32(0L, Z_NULL, 0);
+    // crc32 received
+    uint32_t crc_received = *(uint32_t*)(p_header + sizeof(protocol_header) + sizeof(protocol_header::type));
+    // crc32 over protocol: id,type
+    crc_local = crc32(crc_local, p_header, sizeof(p_header) - sizeof(protocol_header::crc));
+
+    if (crc_local != crc_received)
+    {
+      std::cout << "crc32 check failed" << std::endl;
       remove_client(client.fd);
       return;
     }

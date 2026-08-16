@@ -3,16 +3,20 @@
 
 #include <cstdint>
 
+struct sockaddr_in;
+
 namespace passl
 {
   class client
   {
     public:
       client();
-      void connect(const char* address, uint8_t port);
-      
+      ~client();
+      void connect(const char* address, uint32_t port);
+
     private:
-      int fd=-1;
+      int sock = -1;
+      sockaddr_in* conn_addr;
   };
 }
 

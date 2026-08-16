@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.19)
-project(server VERSION 1.0.0 LANGUAGES CXX)
+project(client VERSION 1.0.0 LANGUAGES CXX)
 
 include(GNUInstallDirs)
 
@@ -23,6 +23,4 @@ target_include_directories(${PROJECT_NAME}
   "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
   "$<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/include>"
   "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>"
-
  )
-
