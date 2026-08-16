@@ -1,0 +1,152 @@
+#include <cerrno>
+#include <cstdint>
+#include <cstring>
+#include <fcntl.h>
+#include <functional>
+#include <iostream>
+#include <stdexcept>
+#include <sys/poll.h>
+#include <sys/socket.h>
+#include <sys/fcntl.h>
+#include <system_error>
+#include "passlcxx.hpp"
+#include <netinet/in.h>
+#include <thread>
+#include <unistd.h>
+#include <poll.h>
+
+namespace passlcxx
+{
+  bool kill_signal = false;
+
+  PasslServer::PasslServer()
+  {
+    address = new sockaddr_in();
+  }
+
+PasslServer::~PasslServer()
+{
+  std::cout << "Called!" << std::endl;
+
+  shutdown(sock,SHUT_RDWR);
+  close(sock);
+
+
+  
+  if(address!=nullptr) delete address;
+  delete[] client_threads;
+  delete[] client_sockets;
+  delete a_poll;
+}
+
+PasslServer::PasslServer(int port)
+{
+  client_threads = new std::thread[max_clients];
+  client_sockets = new int[max_clients];
+  std::cout <<"Creating socket..." <<std::endl;
+  sock = socket(AF_INET,SOCK_STREAM,0);
+  if(sock<0) throw std::system_error(errno,std::generic_category(),strerror(errno));
+  // // Retrieves current flags and applies bitwise OR to add NONBLOCK flag
+  // int o_flags = fcntl(sock, F_GETFL);
+  // if(o_flags==-1) throw std::runtime_error("Undefined socket state error.");
+
+  // std::cout <<"Setting nonblock..." <<std::endl;
+  // fcntl(sock,F_SETFL,o_flags|O_NONBLOCK);
+  
+  // Initializes host IP and port
+  address = new sockaddr_in();
+  address->sin_family=AF_INET;
+  address->sin_port=htons(port);
+  address->sin_addr.s_addr=htonl(INADDR_ANY);
+
+  // Admission socket poll - needed for monitoring the activity
+  a_poll = new pollfd();
+  a_poll->fd=sock;
+  a_poll->events = POLLIN;
+
+}
+
+void PasslServer::disconnect_handler(std::thread::id t_id,int fd)
+{
+  std::cout << "Step 1" << std::endl;
+  std::cout << "Step 2" << std::endl;
+  shutdown(fd, SHUT_RDWR);
+  close(fd);
+  bool match=false;
+
+  std::cout << "Step 3" << std::endl;
+  for(int i=0; i<client_count-1; i++)
+  {
+    if(client_threads[i].get_id() == t_id) match=true;
+    if(match) std::swap(client_threads[i],client_threads[i+1]);
+  }
+
+  std::cout << "Step 4" << std::endl;
+  // Only now we can remove the client
+  client_count--;
+}
+
+
+
+
+void PasslServer::client_handler(int fd)
+{
+  pollfd cl_poll;
+  cl_poll.fd = fd;
+  cl_poll.events = POLLIN|POLLHUP;
+  
+  std::cout << "Client handler" << std::endl;
+  while(!_shutdown)
+  {
+    int res = poll(&cl_poll,1,800);
+    if(res>0)
+    {
+      if(cl_poll.revents & POLLIN && client_count <3)
+      {
+
+        char buff[4]="";
+        int n = recv(fd,buff,4,0);
+        if(n<1) break;
+      }
+      if(cl_poll.revents & POLLHUP)
+      {
+        break;
+      }
+    }
+  }
+  std::cout <<"Exited" << std::endl;
+  disconnect_handler(std::this_thread::get_id(),fd);
+}
+
+
+void PasslServer::conn_handler()
+{
+  listen(sock,max_clients);
+  
+  while(!_shutdown)
+  {
+    // Checking for incoming connections every 10ms
+    int _con = poll(a_poll,1 , 800);
+    if(_con>0)
+    {
+      std::cout << "accept trigg" << std::endl;
+      int c_sock = accept(sock,nullptr,nullptr);
+      client_threads[client_count] = std::thread(&PasslServer::client_handler,this,c_sock);
+      // client_threads[client_count].detach();
+      client_count++;
+    }
+    if(passl::kill_signal)
+    {
+      std::cout << "KIll signal recognized" << std::endl;
+      _shutdown = true;
+      break;
+    }
+  }
+}
+
+void PasslServer::start()
+{
+  int _err = bind(sock,(sockaddr*)address, sizeof(*address));
+  if(_err<0) throw std::system_error(errno,std::generic_category(),"Failed to start server.");
+  conn_handler();  
+}

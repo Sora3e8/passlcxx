@@ -1,0 +1,25 @@
+---
+BasedOnStyle: WebKit
+BreakBeforeBraces: Allman
+IndentWidth: 2
+TabWidth: 0
+---
+Language: Cpp
+DerivePointerAlignment: false
+PointerAlignment: Left
+NamespaceIndentation: All
+IndentAccessModifiers: true
+AccessModifierOffset: 0
+IndentCaseLabels: true
+BinPackParameters: false
+AllowShortFunctionsOnASingleLine: All
+AllowShortIfStatementsOnASingleLine: true
+AllowShortLambdasOnASingleLine: true
+AllowShortLoopsOnASingleLine: true
+AllowShortNamespacesOnASingleLine: true
+# AllowShortRecordOnASingleLine: true # Since clang23
+AllowShortCaseExpressionOnASingleLine: true
+AllowShortBlocksOnASingleLine: true
+AllowShortCaseLabelsOnASingleLine: true
+AllowShortCompoundRequirementOnASingleLine: true
+---

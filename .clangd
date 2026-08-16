@@ -1,0 +1,2 @@
+CompileFlags:
+  Add: [-Wall, --std=c++11,-Iinclude, -I../include,-Ilib/tancrypt/include,-I../lib/tancrypt/include]
