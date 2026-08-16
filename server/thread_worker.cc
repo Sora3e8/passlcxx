@@ -106,25 +106,25 @@ namespace passl
 
   void thread_worker::retrieve_pubkey(s_client& client)
   {
-    unsigned char header[10];
-    size_t rec_size = recv(client.fd, &header, 10, MSG_PEEK);
-    std::cout << "Received:" << dutils::hexStr(dutils::dbuffer(header, 10))
-              << std::endl;
+    unsigned char p_header[10];
+
+    size_t rec_size = recv(client.fd, &p_header, 10, MSG_PEEK);
+    std::cout << "Received:" << dutils::hexStr(dutils::dbuffer(p_header, 10)) << std::endl;
     std::cout << "Rec size: " << rec_size << std::endl;
+
     if (rec_size != 10)
     {
       remove_client(client.fd);
       return;
     }
-
-    protocol_header p_header;
-    memcpy(&p_header.id, header, sizeof(protocol_header::id));
-
-    char* id_rec = (char*)&p_header.id[0];
-    char* id_prot = (char*)passl::protocol_signature;
-
-    if (memcmp(id_rec, id_prot, sizeof(protocol_header::id)) != 0)
+    if (memcmp((char*)p_header, ((char*)passl::protocol_signature), sizeof(protocol_header::id)) != 0)
     {
+      remove_client(client.fd);
+      return;
+    }
+    else
+    {
+      std::cout << "Success!!!" << std::endl;
       remove_client(client.fd);
       return;
     }
