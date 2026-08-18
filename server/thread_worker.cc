@@ -6,6 +6,7 @@
 #include <chrono>
 #include <cstring>
 #include <iostream>
+#include <netinet/in.h>
 #include <sys/poll.h>
 #include <sys/socket.h>
 #include <thread>
@@ -13,6 +14,11 @@
 #include <unistd.h>
 #include <utility>
 #include <zlib.h>
+
+inline uint32_t bswap32(uint32_t value)
+{
+  return (((value & 0xff000000) >> 24) | ((value & 0x000000ff) << 24) | ((value & 0x00ff0000) >> 8) | ((value & 0x0000ff00) << 8));
+}
 
 namespace passl
 {
@@ -118,17 +124,19 @@ namespace passl
       remove_client(client.fd);
       return;
     }
-
+    unsigned char* bp = (unsigned char*)(&p_header) + (sizeof(protocol_signature) + sizeof(protocol_header::type));
+    // crc32 received
+    uint32_t crc_received = *(uint32_t*)bp;
     // crc32 local setup
     uint32_t crc_local = crc32(0L, Z_NULL, 0);
-    // crc32 received
-    uint32_t crc_received = *(uint32_t*)(p_header + sizeof(protocol_header) + sizeof(protocol_header::type));
     // crc32 over protocol: id,type
     crc_local = crc32(crc_local, p_header, sizeof(p_header) - sizeof(protocol_header::crc));
 
     if (crc_local != crc_received)
     {
       std::cout << "crc32 check failed" << std::endl;
+      std::cout << "crc received: " << dutils::hexStr(dutils::dbuffer((unsigned char*)&crc_received, sizeof(protocol_header::crc))) << std::endl;
+      std::cout << "crc local: " << dutils::hexStr(dutils::dbuffer((unsigned char*)&crc_local, sizeof(protocol_header::crc))) << std::endl;
       remove_client(client.fd);
       return;
     }
