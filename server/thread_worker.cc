@@ -4,6 +4,7 @@
 #include "tancrypt/dutils.hpp"
 #include <algorithm>
 #include <chrono>
+#include <cstddef>
 #include <cstring>
 #include <iostream>
 #include <netinet/in.h>
@@ -101,47 +102,48 @@ namespace passl
     clients[client_count].server_key = tancrypt::RSA::pkic();
     clients[client_count].client_key = tancrypt::RSA::pkic();
     clients[client_count].data = { };
-    clients[client_count].c_state = s_clistate::INIT_KEYPAIR;
+    clients[client_count].c_state = s_clistate::RET_PUBKEY;
     client_count += -1;
   }
 
   void thread_worker::keygen_and_send(s_client& client, size_t keysize)
   {
     client.server_key.generate_keypair(keysize);
-    client.c_state = s_clistate::RET_PUBKEY;
+    client.c_state = s_clistate::RET_HEADER;
   }
 
   void thread_worker::retrieve_pubkey(s_client& client)
   {
-    unsigned char p_header[10];
-
-    size_t rec_size = recv(client.fd, &p_header, 10, MSG_PEEK);
-    std::cout << "Received:" << dutils::hexStr(dutils::dbuffer(p_header, 10)) << std::endl;
+    unsigned char p_header[sizeof_protocol_chunk()];
+    size_t rec_size = recv(client.fd, &p_header, sizeof(p_header), 0);
+    std::cout << "Received:" << dutils::hexStr(dutils::dbuffer(p_header, sizeof(p_header))) << std::endl;
     std::cout << "Rec size: " << rec_size << std::endl;
 
-    if (rec_size != 10)
+    if (rec_size != sizeof_protocol_chunk())
     {
       remove_client(client.fd);
       return;
     }
-    unsigned char* bp = (unsigned char*)(&p_header) + (sizeof(protocol_signature) + sizeof(protocol_header::type));
+
     // crc32 received
-    uint32_t crc_received = *(uint32_t*)bp;
+    uint32_t crc_received = *(uint32_t*)(p_header + sizeof(p_header) - sizeof(passl::protocol_chunk::crc));
     // crc32 local setup
     uint32_t crc_local = crc32(0L, Z_NULL, 0);
     // crc32 over protocol: id,type
-    crc_local = crc32(crc_local, p_header, sizeof(p_header) - sizeof(protocol_header::crc));
+    crc_local = crc32(crc_local, p_header, sizeof_protocol_chunk() - sizeof(passl::protocol_chunk::crc));
 
     if (crc_local != crc_received)
     {
       std::cout << "crc32 check failed" << std::endl;
-      std::cout << "crc received: " << dutils::hexStr(dutils::dbuffer((unsigned char*)&crc_received, sizeof(protocol_header::crc))) << std::endl;
-      std::cout << "crc local: " << dutils::hexStr(dutils::dbuffer((unsigned char*)&crc_local, sizeof(protocol_header::crc))) << std::endl;
+      std::cout << "crc received: " << dutils::hexStr(dutils::dbuffer((unsigned char*)&crc_received, sizeof(protocol_chunk::crc))) << std::endl;
+      std::cout << "crc local: " << dutils::hexStr(dutils::dbuffer((unsigned char*)&crc_local, sizeof(protocol_chunk::crc))) << std::endl;
       remove_client(client.fd);
       return;
     }
-    if (memcmp((char*)p_header, ((char*)passl::protocol_signature), sizeof(protocol_header::id)) != 0)
+    if (memcmp((char*)p_header, (char*)protocol_chunk::signature, sizeof(protocol_chunk::signature)) != 0)
     {
+
+      std::cout << "Unknown protocol" << std::endl;
       remove_client(client.fd);
       return;
     }
@@ -162,12 +164,12 @@ namespace passl
 
       if (cpoll[i].revents & POLLIN)
       {
+        // Attempts to retrieve client's pubkey if not yet retrieved
+        if (clients[i].c_state == s_clistate::RET_PUBKEY) retrieve_pubkey(clients[i]);
+
         // Initializes key and sends if not ready - but this fires only when
         // client sends their key first!
         if (clients[i].c_state == s_clistate::INIT_KEYPAIR) keygen_and_send(clients[i], 2048);
-
-        // Attempts to retrieve client's pubkey if not yet retrieved
-        if (clients[i].c_state == s_clistate::RET_PUBKEY) retrieve_pubkey(clients[i]);
       }
     }
   }

@@ -1,5 +1,6 @@
 #include "client.hpp"
 #include "header_structs.hpp"
+#include "tancrypt/dutils.hpp"
 #include <arpa/inet.h>
 #include <cerrno>
 #include <cstdint>
@@ -31,14 +32,14 @@ namespace passl
       return;
     }
 
-    passl::protocol_header header = create_protocol_header();
-    header.type = 1;
-    header.crc = crc32(0L, Z_NULL, 0);
-    header.crc = crc32(header.crc, (unsigned char*)(&header.id), sizeof(protocol_signature));
-    header.crc = crc32(header.crc, (unsigned char*)(&header.type), sizeof(passl::protocol_header::type));
+    passl::protocol_header header;
+    header.p_chunk.type = 1;
+    header.p_chunk.crc = crc32(0L, Z_NULL, 0);
+    header.p_chunk.crc = crc32(header.p_chunk.crc, (unsigned char*)(&header.p_chunk.signature), sizeof(protocol_chunk::signature));
+    header.p_chunk.crc = crc32(header.p_chunk.crc, (unsigned char*)(&header.p_chunk.type), sizeof(protocol_chunk::type));
 
-    unsigned char* header_serialized = passl::serialize_protocol_header(&header);
-    send(sock, header_serialized, sizeof(passl::protocol_header), 0);
+    unsigned char* header_serialized = header.get_serialized();
+    send(sock, header_serialized, sizeof_protocol_chunk(), 0);
     delete[] header_serialized;
   }
 
