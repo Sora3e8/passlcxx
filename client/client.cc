@@ -1,6 +1,6 @@
 #include "client.hpp"
 #include "header_structs.hpp"
-#include "tancrypt/dutils.hpp"
+#include "tancrypt/rsa.hpp"
 #include <arpa/inet.h>
 #include <cerrno>
 #include <cstdint>
@@ -32,14 +32,16 @@ namespace passl
       return;
     }
 
-    passl::protocol_header header;
-    header.p_chunk.type = 1;
-    header.p_chunk.crc = crc32(0L, Z_NULL, 0);
-    header.p_chunk.crc = crc32(header.p_chunk.crc, (unsigned char*)(&header.p_chunk.signature), sizeof(protocol_chunk::signature));
-    header.p_chunk.crc = crc32(header.p_chunk.crc, (unsigned char*)(&header.p_chunk.type), sizeof(protocol_chunk::type));
+    // Initialize keypair and extract pubkey
+    tancrypt::RSA::pkic client_key;
+    client_key.generate_keypair(3072);
+    dutils::dbuffer client_pubkey = client_key.getPubDER();
+
+    // Prepare header to carry the pubkey
+    passl::protocol_header header(1, client_pubkey.size(), client_pubkey.size());
 
     unsigned char* header_serialized = header.get_serialized();
-    send(sock, header_serialized, sizeof_protocol_chunk(), 0);
+    send(sock, header_serialized, sizeof_protocol_header(), 0);
     delete[] header_serialized;
   }
 

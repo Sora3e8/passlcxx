@@ -14,7 +14,6 @@
 #include <uchar.h>
 #include <unistd.h>
 #include <utility>
-#include <zlib.h>
 
 inline uint32_t bswap32(uint32_t value)
 {
@@ -114,44 +113,20 @@ namespace passl
 
   void thread_worker::retrieve_pubkey(s_client& client)
   {
-    unsigned char p_header[sizeof_protocol_chunk()];
-    size_t rec_size = recv(client.fd, &p_header, sizeof(p_header), 0);
-    std::cout << "Received:" << dutils::hexStr(dutils::dbuffer(p_header, sizeof(p_header))) << std::endl;
-    std::cout << "Rec size: " << rec_size << std::endl;
+    unsigned char p_header[sizeof_protocol_header()];
 
-    if (rec_size != sizeof_protocol_chunk())
+    // Size with -1 error guard
+    int rec_size = recv(client.fd, &p_header, sizeof(p_header), 0);
+    if (!(rec_size > 0)) return;
+    protocol_descriptor descriptor;
+    if (!protocol_header::read_descriptor(p_header, rec_size, &descriptor))
     {
-      remove_client(client.fd);
-      return;
-    }
-
-    // crc32 received
-    uint32_t crc_received = *(uint32_t*)(p_header + sizeof(p_header) - sizeof(passl::protocol_chunk::crc));
-    // crc32 local setup
-    uint32_t crc_local = crc32(0L, Z_NULL, 0);
-    // crc32 over protocol: id,type
-    crc_local = crc32(crc_local, p_header, sizeof_protocol_chunk() - sizeof(passl::protocol_chunk::crc));
-
-    if (crc_local != crc_received)
-    {
-      std::cout << "crc32 check failed" << std::endl;
-      std::cout << "crc received: " << dutils::hexStr(dutils::dbuffer((unsigned char*)&crc_received, sizeof(protocol_chunk::crc))) << std::endl;
-      std::cout << "crc local: " << dutils::hexStr(dutils::dbuffer((unsigned char*)&crc_local, sizeof(protocol_chunk::crc))) << std::endl;
-      remove_client(client.fd);
-      return;
-    }
-    if (memcmp((char*)p_header, (char*)protocol_chunk::signature, sizeof(protocol_chunk::signature)) != 0)
-    {
-
-      std::cout << "Unknown protocol" << std::endl;
-      remove_client(client.fd);
-      return;
+      std::cout << "Validation failed!" << std::endl;
+      std::cout << passl::prot_errstr(descriptor.status) << std::endl;
     }
     else
     {
-      std::cout << "Success!!!" << std::endl;
-      remove_client(client.fd);
-      return;
+      std::cout << "Validation succeeded!" << std::endl;
     }
   }
 

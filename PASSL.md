@@ -15,8 +15,9 @@ Algorithm comparison
 ## Paranoid TLS handshake
   ```
   Client [syn] --> server
-  Client <--[syn-ack with SSL cert] server
-  Client [syn-ack with SSL cert]--> server
+  Client <--[syn-ack] server
+  Client [pubkey]--> server
+  Client <--[pubkey] server
   *client and server generate part of shared secret*
   Client <--[shared-secret 1/2] server
   Client [shared-secret 1/2]--> server

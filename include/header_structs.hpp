@@ -40,11 +40,41 @@ namespace passl
     return sizeof_protocol_chunk() + sizeof_data_chunk();
   }
 
+  enum protocol_status
+  {
+    ok = 0,
+    unknown_protocol,
+    bad_crc,
+    state_mismatch,
+    truncated_data
+
+  };
+
+  inline const char* prot_errstr(protocol_status status)
+  {
+    switch (status)
+    {
+      case protocol_status::ok:
+        return "OK";
+      case protocol_status::unknown_protocol:
+        return "Unknown protocol";
+      case protocol_status::bad_crc:
+        return "CRC validation failed";
+      case protocol_status::state_mismatch:
+        return "State mismatch";
+      case protocol_status::truncated_data:
+        return "Truncated data";
+      default:
+        return "Unknown error";
+    }
+  }
+
   struct protocol_descriptor
   {
       uint8_t type;
       size_t payload_size;
       size_t block_size;
+      protocol_status status;
   };
 
   class protocol_header
@@ -54,19 +84,41 @@ namespace passl
       data_chunk d_chunk;
 
       protocol_header() { }
-
-      const static bool read_descriptor(unsigned char data[sizeof_protocol_header()], protocol_descriptor descriptor)
+      protocol_header(uint8_t type, size_t payload_size, size_t block_size)
       {
+        p_chunk.type = type;
+        p_chunk.crc = crc32(0L, Z_NULL, 0);
+        p_chunk.crc = crc32(p_chunk.crc, (unsigned char*)(p_chunk.signature), sizeof(protocol_chunk::signature));
+        p_chunk.crc = crc32(p_chunk.crc, (unsigned char*)((&p_chunk.type)), sizeof(protocol_chunk::type));
+      }
+
+      const static bool read_descriptor(unsigned char data[sizeof_protocol_header()], size_t size, protocol_descriptor* descriptor)
+      {
+        if (size != sizeof_protocol_header())
+        {
+          descriptor->status = protocol_status::truncated_data;
+          return false;
+        }
+
         uint32_t crc_received = *(uint32_t*)(data + sizeof_protocol_chunk() - sizeof(protocol_chunk::crc));
         uint32_t crc_local = crc32(0L, Z_NULL, 0);
 
         crc_local = crc32(crc_local, data, sizeof_protocol_chunk() - sizeof(protocol_chunk::crc));
-        if (crc_local != crc_received) return false;
-        if (memcmp((char*)data, (char*)protocol_chunk::signature, sizeof(protocol_chunk::signature)) != 0) return false;
+        if (crc_local != crc_received)
+        {
+          descriptor->status = protocol_status::bad_crc;
+          return false;
+        }
 
-        descriptor.type = *(uint8_t*)(data + sizeof(protocol_chunk::signature));
-        descriptor.payload_size = *(uint8_t*)(data + sizeof_protocol_chunk() + sizeof(data_chunk::signature));
-        descriptor.block_size = *(uint8_t*)(data + sizeof_protocol_chunk() + sizeof(data_chunk::signature));
+        if (memcmp((char*)data, (char*)protocol_chunk::signature, sizeof(protocol_chunk::signature)) != 0)
+        {
+          descriptor->status = protocol_status::unknown_protocol;
+          return false;
+        }
+
+        descriptor->type = *(uint8_t*)(data + sizeof(protocol_chunk::signature));
+        descriptor->payload_size = *(uint8_t*)(data + sizeof_protocol_chunk() + sizeof(data_chunk::signature));
+        descriptor->block_size = *(uint8_t*)(data + sizeof_protocol_chunk() + sizeof(data_chunk::signature));
         return true;
       }
 
