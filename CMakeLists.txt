@@ -17,6 +17,8 @@ file(GLOB_RECURSE SHARED_SRCS INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/src/*.cc)
 target_sources(${PROJECT_NAME} INTERFACE ${SHARED_SRCS})
 
 file(GLOB_RECURSE COPY_HEADERS
+  ${CMAKE_CURRENT_SOURCE_DIR}/protocol/include/*.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/protocol/include/*.hpp
   ${CMAKE_CURRENT_SOURCE_DIR}/client/include/*.h
   ${CMAKE_CURRENT_SOURCE_DIR}/client/include/*.hpp
   ${CMAKE_CURRENT_SOURCE_DIR}/server/include/*.h
@@ -25,6 +27,7 @@ file(GLOB_RECURSE COPY_HEADERS
 
 file(COPY ${COPY_HEADERS} DESTINATION ${CMAKE_BINARY_DIR}/include/${PROJECT_NAME}/)
 
+add_subdirectory(protocol)
 add_subdirectory(client)
 add_subdirectory(server)
 add_subdirectory(lib/tancrypt)
@@ -36,6 +39,7 @@ target_include_directories(${PROJECT_NAME} INTERFACE
   $<INSTALL_INTERFACE:include/${PROJECT_NAME}>
 )
 
+target_link_libraries(${PROJECT_NAME} INTERFACE protocol)
 target_link_libraries(${PROJECT_NAME} INTERFACE client)
 target_link_libraries(${PROJECT_NAME} INTERFACE server)
 target_link_libraries(${PROJECT_NAME} INTERFACE tancrypt)

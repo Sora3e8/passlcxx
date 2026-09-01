@@ -1,5 +1,5 @@
 #include "thread_worker.hpp"
-#include "header_structs.hpp"
+#include "passl/protocol.hpp"
 #include "s_client.hpp"
 #include "tancrypt/dutils.hpp"
 #include <algorithm>

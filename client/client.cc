@@ -1,5 +1,5 @@
 #include "client.hpp"
-#include "header_structs.hpp"
+#include "passl/protocol.hpp"
 #include "tancrypt/rsa.hpp"
 #include <arpa/inet.h>
 #include <cerrno>
@@ -8,7 +8,6 @@
 #include <iostream>
 #include <sys/socket.h>
 #include <unistd.h>
-#include <zlib.h>
 
 namespace passl
 {

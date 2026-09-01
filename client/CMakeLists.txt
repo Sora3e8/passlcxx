@@ -13,9 +13,7 @@ set_target_properties(${PROJECT_NAME}
   CMAKE_CXX_STANDARD_REQUIRED ON
 )
 
-# For crc32
-find_package(ZLIB REQUIRED)
-target_link_libraries("${PROJECT_NAME}" PRIVATE ZLIB::ZLIB)
+target_link_libraries("${PROJECT_NAME}" PRIVATE protocol)
 
 target_include_directories(${PROJECT_NAME}
   PUBLIC

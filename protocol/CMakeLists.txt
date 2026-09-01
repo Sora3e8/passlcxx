@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.19)
-project(server VERSION 1.0.0 LANGUAGES CXX)
+project(protocol VERSION 1.0.0 LANGUAGES CXX)
 
 include(GNUInstallDirs)
 
@@ -13,7 +13,9 @@ set_target_properties(${PROJECT_NAME}
   CMAKE_CXX_STANDARD_REQUIRED ON
 )
 
-target_link_libraries("${PROJECT_NAME}" PRIVATE protocol)
+# For crc32
+find_package(ZLIB REQUIRED)
+target_link_libraries("${PROJECT_NAME}" PRIVATE ZLIB::ZLIB)
 
 target_include_directories(${PROJECT_NAME}
   PUBLIC
@@ -21,6 +23,4 @@ target_include_directories(${PROJECT_NAME}
   "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
   "$<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/include>"
   "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>"
-
  )
-
