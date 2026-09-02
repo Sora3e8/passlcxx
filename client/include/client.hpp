@@ -1,6 +1,7 @@
 #ifndef PASSLCXX_HPP
 #define PASSLCXX_HPP
 
+#include <cstddef>
 #include <cstdint>
 
 struct sockaddr_in;
@@ -13,6 +14,7 @@ namespace passl
       client();
       ~client();
       void connect(const char* address, uint32_t port);
+      size_t key_bitsize = 3072;
 
     private:
       int sock = -1;

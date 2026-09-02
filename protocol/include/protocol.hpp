@@ -4,6 +4,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <functional>
 #include <uchar.h>
 
 namespace passl
@@ -74,6 +75,32 @@ namespace passl
       size_t payload_size;
       size_t block_size;
       protocol_status status;
+  };
+
+  class dblock_iterator
+  {
+    public:
+      size_t data_size = 0;
+      size_t block_size = 0;
+      size_t pre_offset = 0;
+      size_t post_offset = 0;
+
+      dblock_iterator(unsigned char* data, size_t data_size, size_t block_size)
+      {
+        this->data = data;
+        this->data_size = data_size;
+        this->block_size = block_size;
+      }
+      dblock_iterator(unsigned char* data, size_t data_size, size_t block_size, size_t pre_offset, size_t post_offset)
+      {
+        this->data = data;
+        this->data_size = data_size;
+        this->block_size = block_size;
+        this->pre_offset = pre_offset;
+        this->post_offset = post_offset;
+      }
+      void iterate(const std::function<bool(uint32_t crc, unsigned char* data, size_t data_size)> lambda);
+      unsigned char* data = nullptr;
   };
 
   class protocol_header
