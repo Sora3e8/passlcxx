@@ -41,11 +41,11 @@ namespace passl
     // Prepare header to carry the pubkey
     passl::protocol_header header(1, client_pubkey.size(), client_pubkey.size());
     unsigned char* header_serialized = header.get_serialized();
-    send(sock, header_serialized, sizeof_protocol_header(), 0);
+    send(sock, header_serialized, passl::protocol_header::sizeof_protocol_header(), 0);
     delete[] header_serialized;
 
     // Data iterator, we will use this to send our blocks
-    passl::dblock_iterator iterator(client_pubkey.data(), client_pubkey.size(), header.d_chunk.block_size, 0, sizeof(uint32_t));
+    passl::dblock_iterator iterator(client_pubkey.data(), client_pubkey.size(), header.d_section.block_size, 0, sizeof(uint32_t));
 
     iterator.iterate(
         [this](uint32_t crc32, unsigned char* data, size_t block_size) -> bool

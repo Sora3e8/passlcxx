@@ -113,7 +113,7 @@ namespace passl
 
   void thread_worker::retrieve_pubkey(s_client& client)
   {
-    unsigned char p_header[sizeof_protocol_header()];
+    unsigned char p_header[passl::protocol_header::sizeof_protocol_header()];
 
     // Size with -1 error guard
     int rec_size = recv(client.fd, &p_header, sizeof(p_header), 0);

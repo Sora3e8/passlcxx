@@ -10,18 +10,6 @@
 namespace passl
 {
 
-  struct protocol_chunk
-  {
-      constexpr static uint8_t signature[5] = { 0x50, 0x41, 0x53, 0x53, 0x4c };
-      uint8_t type;
-      uint32_t crc;
-  };
-
-  constexpr size_t sizeof_protocol_chunk()
-  {
-    return sizeof(protocol_chunk::signature) + sizeof(protocol_chunk::type) + sizeof(protocol_chunk::crc);
-  }
-
   struct data_chunk
   {
       constexpr static uint8_t signature[4] = { 0x44, 0x41, 0x54, 0x41 };
@@ -33,11 +21,6 @@ namespace passl
   constexpr size_t sizeof_data_chunk()
   {
     return sizeof(data_chunk::signature) + sizeof(data_chunk::payload_size) + sizeof(data_chunk::block_size) + sizeof(data_chunk::crc);
-  }
-
-  constexpr size_t sizeof_protocol_header()
-  {
-    return sizeof_protocol_chunk() + sizeof_data_chunk();
   }
 
   enum protocol_status
@@ -106,13 +89,39 @@ namespace passl
   class protocol_header
   {
     public:
-      protocol_chunk p_chunk;
-      data_chunk d_chunk;
+      struct protocol_section
+      {
+          constexpr static uint8_t signature[5] = { 0x50, 0x41, 0x53, 0x53, 0x4c };
+          uint8_t type;
+          uint32_t crc;
+      } p_section;
+      struct data_section
+      {
+          constexpr static uint8_t signature[4] = { 0x44, 0x41, 0x54, 0x41 };
+          size_t payload_size;
+          size_t block_size;
+          uint32_t crc;
+      } d_section;
 
       protocol_header();
       protocol_header(uint8_t type, size_t payload_size, size_t block_size);
 
-      const static bool read_descriptor(unsigned char data[sizeof_protocol_header()], size_t size, protocol_descriptor* descriptor);
+      static constexpr size_t sizeof_protocol_section()
+      {
+        return sizeof(protocol_section::signature) + sizeof(protocol_section::type) + sizeof(protocol_section::crc);
+      }
+
+      static constexpr size_t sizeof_data_section()
+      {
+        return sizeof(data_section::signature) + sizeof(data_section::payload_size) + sizeof(data_section::block_size) + sizeof(data_section::crc);
+      }
+
+      static constexpr size_t sizeof_protocol_header()
+      {
+        return sizeof_protocol_section() + sizeof_data_section();
+      }
+
+      const static bool read_descriptor(unsigned char* data, size_t size, protocol_descriptor* descriptor);
 
       unsigned char* get_serialized();
   };
