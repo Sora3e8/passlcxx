@@ -20,6 +20,7 @@ AllowShortNamespacesOnASingleLine: true
 # AllowShortRecordOnASingleLine: true # Since clang23
 AllowShortCaseExpressionOnASingleLine: true
 AllowShortBlocksOnASingleLine: true
+IndentPPDirectives: BeforeHash
 AllowShortCaseLabelsOnASingleLine: true
 AllowShortCompoundRequirementOnASingleLine: true
----
+

@@ -9,24 +9,11 @@
 
 namespace passl
 {
-
-  struct data_chunk
-  {
-      constexpr static uint8_t signature[4] = { 0x44, 0x41, 0x54, 0x41 };
-      size_t payload_size;
-      size_t block_size;
-      uint32_t crc;
-  };
-
-  constexpr size_t sizeof_data_chunk()
-  {
-    return sizeof(data_chunk::signature) + sizeof(data_chunk::payload_size) + sizeof(data_chunk::block_size) + sizeof(data_chunk::crc);
-  }
-
   enum protocol_status
   {
     ok = 0,
     unknown_protocol,
+    invalid_data_descriptor,
     bad_crc,
     state_mismatch,
     truncated_data
@@ -41,6 +28,8 @@ namespace passl
         return "OK";
       case protocol_status::unknown_protocol:
         return "Unknown protocol";
+      case protocol_status::invalid_data_descriptor:
+        return "U";
       case protocol_status::bad_crc:
         return "CRC validation failed";
       case protocol_status::state_mismatch:
@@ -122,7 +111,6 @@ namespace passl
       }
 
       const static bool read_descriptor(unsigned char* data, size_t size, protocol_descriptor* descriptor);
-
       unsigned char* get_serialized();
   };
 

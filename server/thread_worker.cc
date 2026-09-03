@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <chrono>
 #include <cstddef>
+#include <cstdint>
 #include <cstring>
 #include <iostream>
 #include <netinet/in.h>
@@ -107,6 +108,7 @@ namespace passl
 
   void thread_worker::keygen_and_send(s_client& client, size_t keysize)
   {
+    std::cout << "Sending out server pubkey!" << std::endl;
     client.server_key.generate_keypair(keysize);
     client.c_state = s_clistate::RET_HEADER;
   }
@@ -114,20 +116,46 @@ namespace passl
   void thread_worker::retrieve_pubkey(s_client& client)
   {
     unsigned char p_header[passl::protocol_header::sizeof_protocol_header()];
+    int rec_size = 0;
 
     // Size with -1 error guard
-    int rec_size = recv(client.fd, &p_header, sizeof(p_header), 0);
+    rec_size = recv(client.fd, &p_header, sizeof(p_header), 0);
     if (!(rec_size > 0)) return;
+
     protocol_descriptor descriptor;
     if (!protocol_header::read_descriptor(p_header, rec_size, &descriptor))
     {
-      std::cout << "Validation failed!" << std::endl;
+      remove_client(client.fd);
+      std::cout << "Connection closed:" << std::endl;
       std::cout << passl::prot_errstr(descriptor.status) << std::endl;
+      return;
     }
-    else
-    {
-      std::cout << "Validation succeeded!" << std::endl;
-    }
+
+    // Rec size flush
+    rec_size = 0;
+
+    // We must read size of the payload + uint32_t (to account for crc32)
+    dutils::dbuffer key_data(descriptor.payload_size + sizeof(uint32_t));
+    rec_size = recv(client.fd, key_data.data(), key_data.size(), MSG_WAITALL);
+    if (!(rec_size > 0)) return;
+
+    dblock_iterator block_iterator(key_data.data(), descriptor.payload_size, descriptor.block_size, sizeof(uint32_t), 0);
+    block_iterator.iterate(
+        [this, &client](uint32_t crc_local, unsigned char* data, size_t block_size) -> bool
+        {
+          // Extract preceeding crc32 of the data
+          uint32_t crc_received = *(uint32_t*)(data - sizeof(uint32_t));
+          if (crc_local != crc_received)
+          {
+            remove_client(client.fd);
+            std::cout << "Pubkey corrupted, connection closed!" << std::endl;
+            return false;
+          }
+          client.client_key.loadPubDER(data, block_size);
+          return true;
+        });
+
+    client.c_state = s_clistate::INIT_KEYPAIR;
   }
 
   void thread_worker::handle_events()

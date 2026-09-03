@@ -20,6 +20,6 @@ namespace passl
       int sock = -1;
       sockaddr_in* conn_addr;
   };
-}
+} // namespace passl
 
 #endif
