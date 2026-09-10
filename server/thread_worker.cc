@@ -141,11 +141,11 @@ namespace passl
 
     dblock_iterator block_iterator(key_data.data(), descriptor.payload_size, descriptor.block_size, sizeof(uint32_t), 0);
     block_iterator.iterate(
-        [this, &client](uint32_t crc_local, unsigned char* data, size_t block_size) -> bool
+        [this, &client](uint32_t* crc_local, unsigned char* data, size_t block_size) -> bool
         {
           // Extract preceeding crc32 of the data
           uint32_t crc_received = *(uint32_t*)(data - sizeof(uint32_t));
-          if (crc_local != crc_received)
+          if (*crc_local != crc_received)
           {
             remove_client(client.fd);
             std::cout << "Pubkey corrupted, connection closed!" << std::endl;

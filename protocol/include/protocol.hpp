@@ -49,6 +49,8 @@ namespace passl
       protocol_status status;
   };
 
+  uint32_t crc_block(unsigned char* data, size_t block_size);
+  inline bool verify_block(unsigned char* data, size_t block_size);
   class dblock_iterator
   {
     public:
@@ -56,12 +58,15 @@ namespace passl
       size_t block_size = 0;
       size_t pre_offset = 0;
       size_t post_offset = 0;
+      size_t ptr_pos = 0;
+      size_t block_count = 0;
 
       dblock_iterator(unsigned char* data, size_t data_size, size_t block_size)
       {
         this->data = data;
         this->data_size = data_size;
         this->block_size = block_size;
+        this->block_count = data_size / (block_size + pre_offset);
       }
       dblock_iterator(unsigned char* data, size_t data_size, size_t block_size, size_t pre_offset, size_t post_offset)
       {
@@ -70,8 +75,10 @@ namespace passl
         this->block_size = block_size;
         this->pre_offset = pre_offset;
         this->post_offset = post_offset;
+        this->ptr_pos = pre_offset;
+        this->block_count = data_size / (block_size + pre_offset);
       }
-      void iterate(const std::function<bool(uint32_t crc, unsigned char* data, size_t data_size)> lambda);
+      void iterate(const std::function<bool(uint32_t* crc_ptr, unsigned char* data, size_t data_size)> lambda);
       unsigned char* data = nullptr;
   };
 

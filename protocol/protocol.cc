@@ -1,7 +1,7 @@
 #include "protocol.hpp"
-#include <cerrno>
+#include <cstddef>
+#include <cstdint>
 #include <cstring>
-#include <iostream>
 #include <stdexcept>
 #include <zlib.h>
 
@@ -91,28 +91,42 @@ namespace passl
     return true;
   }
 
-  void dblock_iterator::iterate(const std::function<bool(uint32_t crc, unsigned char* data, size_t data_size)> lambda)
+  uint32_t crc_block(unsigned char* data, size_t block_size)
   {
-    unsigned char* data_ptr = data + pre_offset;
-    size_t blocks = data_size / (block_size + pre_offset);
+    uint32_t crc = crc32(0L, Z_NULL, 0);
+    crc = crc32(crc, data, block_size);
+
+    return crc;
+  }
+
+  // Returns true if matches or false if not
+  bool verify_block(unsigned char* data, size_t block_size)
+  {
+    uint32_t crc_received = *(uint32_t*)(data - sizeof(uint32_t));
+    uint32_t crc_local = crc_block(data, block_size);
+
+    return (crc_local == crc_received);
+  }
+
+  void dblock_iterator::iterate(const std::function<bool(uint32_t* crc_ptr, unsigned char* data, size_t data_size)> lambda)
+  {
+    unsigned char* data_ptr = data + ptr_pos;
     size_t irr_blocksize = data_size % block_size;
 
     // Safeguard if size 0
-    if (blocks == 0 && irr_blocksize == 0)
+    if (block_count == 0 && irr_blocksize == 0)
       return;
 
-    for (int i = 0; i < blocks; i++)
+    while (ptr_pos < data_size)
     {
+
       uint32_t block_crc = crc32(0L, Z_NULL, 0);
-      block_crc = crc32(block_crc, data_ptr, block_size);
-      bool res = lambda(block_crc, data_ptr, block_size);
-      if (!res)
-      {
-        std::cout << "Could not send data, error code " << errno << "\n"
-                  << strerror(errno) << std::endl;
-        break;
-      }
-      data_ptr += (block_size + pre_offset + post_offset);
+      if (!(ptr_pos % block_size)) block_crc = crc32(block_crc, data_ptr, block_size);
+
+      uint32_t* crc_ptr = (ptr_pos % block_size) ? nullptr : &block_crc;
+      bool res = lambda(crc_ptr, data_ptr, block_count);
+      ptr_pos += (block_size + pre_offset + post_offset);
+      if (!res) break;
     }
   }
 
@@ -133,11 +147,9 @@ namespace passl
     // d_section serialization
     memcpy(buffer_ptr, d_section.signature, sizeof(d_section.signature));
     buffer_ptr += sizeof(d_section.signature);
-    memcpy(buffer_ptr, (unsigned char*)(&d_section.payload_size),
-           sizeof(d_section.payload_size));
+    memcpy(buffer_ptr, (unsigned char*)(&d_section.payload_size), sizeof(d_section.payload_size));
     buffer_ptr += sizeof(d_section.payload_size);
-    memcpy(buffer_ptr, (unsigned char*)(&d_section.block_size),
-           sizeof(d_section.block_size));
+    memcpy(buffer_ptr, (unsigned char*)(&d_section.block_size), sizeof(d_section.block_size));
     buffer_ptr += sizeof(d_section.block_size);
     memcpy(buffer_ptr, (unsigned char*)(&d_section.crc), sizeof(d_section.crc));
     buffer_ptr += sizeof(d_section.crc);
