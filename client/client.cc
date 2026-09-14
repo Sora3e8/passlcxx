@@ -41,10 +41,14 @@ namespace passl
     // Prepare header to carry the pubkey
     passl::protocol_header header(1, client_pubkey.size(), client_pubkey.size());
     unsigned char* header_serialized = header.get_serialized();
+
+    // Correct the endians for sending over network
+
+    uint32_t crc32 = crc_block(client_pubkey.data(), client_pubkey.size());
+
     send(sock, header_serialized, passl::protocol_header::sizeof_protocol_header(), 0);
     delete[] header_serialized;
 
-    uint32_t crc32 = crc_block(client_pubkey.data(), client_pubkey.size());
     send(sock, (unsigned char*)(&crc32), sizeof(uint32_t), 0);
     send(sock, client_pubkey.data(), client_pubkey.size(), 0);
   }

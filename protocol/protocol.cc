@@ -2,9 +2,22 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
-#include <netinet/in.h>
 #include <stdexcept>
 #include <zlib.h>
+
+uint32_t htonl(uint32_t x)
+{
+#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+  x = __builtin_bswap32(x);
+#endif
+
+  return x;
+}
+
+uint32_t ntohl(uint32_t x)
+{
+  return htonl(x);
+}
 
 namespace passl
 {
@@ -18,11 +31,14 @@ namespace passl
     p_section.crc = crc32(0L, Z_NULL, 0);
     p_section.crc = crc32(p_section.crc, (unsigned char*)(p_section.signature), sizeof(protocol_section::signature));
     p_section.crc = crc32(p_section.crc, (unsigned char*)((&p_section.type)), sizeof(protocol_section::type));
+    // Correct endians
+    p_section.crc = htonl(p_section.crc);
 
     d_section.crc = crc32(0L, Z_NULL, 0);
     d_section.crc = crc32(d_section.crc, (unsigned char*)(d_section.signature), sizeof(data_section::signature));
     d_section.crc = crc32(d_section.crc, (unsigned char*)(&d_section.payload_size), sizeof(data_section::payload_size));
     d_section.crc = crc32(d_section.crc, (unsigned char*)(&d_section.block_size), sizeof(data_section::block_size));
+    d_section.crc = htonl(d_section.crc);
   }
 
   const bool protocol_header::read_descriptor(unsigned char* data, size_t size, protocol_descriptor* descriptor)
@@ -43,7 +59,7 @@ namespace passl
 
     /* p_section verify */
     // Load crc from the section and eval one from the received data
-    crc_received = *(uint32_t*)(data + protocol_header::sizeof_protocol_section() - sizeof(protocol_header::protocol_section::crc));
+    crc_received = ntohl(*(uint32_t*)(data + offset_of_psection_crc()));
     crc_local = crc32(crc_local, data, protocol_header::sizeof_protocol_section() - sizeof(protocol_header::protocol_section::crc));
 
     // Check integrity of the section's crc against crc evaluated from the data we received
@@ -69,7 +85,7 @@ namespace passl
     /* p_section write end */
 
     /* d_section_verify */
-    crc_received = *(uint32_t*)(data + sizeof_protocol_header() - sizeof(protocol_section::crc));
+    crc_received = ntohl(*(uint32_t*)(data + offset_of_dsection_crc()));
     crc_local = crc32(crc_local, data + sizeof_protocol_section(), sizeof_data_section() - sizeof(data_section::crc));
 
     if (crc_local != crc_received)
@@ -97,7 +113,7 @@ namespace passl
     uint32_t crc = crc32(0L, Z_NULL, 0);
     crc = crc32(crc, data, block_size);
 
-    return crc;
+    return htonl(crc);
   }
 
   // Returns true if matches or false if not

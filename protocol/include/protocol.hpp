@@ -106,7 +106,14 @@ namespace passl
       {
         return sizeof_protocol_section() + sizeof_data_section();
       }
-
+      static constexpr size_t offset_of_psection_crc()
+      {
+        return sizeof_protocol_section() - sizeof(protocol_section::crc);
+      }
+      static constexpr size_t offset_of_dsection_crc()
+      {
+        return sizeof_protocol_header() - sizeof(data_section::crc);
+      }
       const static bool read_descriptor(unsigned char* data, size_t size, protocol_descriptor* descriptor);
       unsigned char* get_serialized();
   };
