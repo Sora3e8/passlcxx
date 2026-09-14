@@ -2,6 +2,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <netinet/in.h>
 #include <stdexcept>
 #include <zlib.h>
 
@@ -86,8 +87,8 @@ namespace passl
 
     /* d_section_verify end */
 
-    descriptor->payload_size = *(uint8_t*)(data + sizeof_protocol_section() + sizeof(data_section::signature));
-    descriptor->block_size = *(uint8_t*)(data + sizeof_protocol_section() + sizeof(data_section::signature));
+    descriptor->payload_size = *(uint32_t*)(data + sizeof_protocol_section() + sizeof(data_section::signature));
+    descriptor->block_size = *(uint32_t*)(data + sizeof_protocol_section() + sizeof(data_section::signature) + sizeof(data_section::payload_size));
     return true;
   }
 
@@ -102,30 +103,25 @@ namespace passl
   // Returns true if matches or false if not
   bool verify_block(unsigned char* data, size_t block_size)
   {
-    uint32_t crc_received = *(uint32_t*)(data - sizeof(uint32_t));
-    uint32_t crc_local = crc_block(data, block_size);
+    uint32_t crc_received = *(uint32_t*)data;
+    uint32_t crc_local = crc_block(data + sizeof(uint32_t), block_size);
 
     return (crc_local == crc_received);
   }
 
-  void dblock_iterator::iterate(const std::function<bool(uint32_t* crc_ptr, unsigned char* data, size_t data_size)> lambda)
+  void chunk_iterator::iterate(const std::function<bool(unsigned char* data, size_t data_size)> lambda)
   {
     unsigned char* data_ptr = data + ptr_pos;
-    size_t irr_blocksize = data_size % block_size;
+    size_t irr_blocksize = data_size % chunk_size;
 
     // Safeguard if size 0
-    if (block_count == 0 && irr_blocksize == 0)
+    if (chunk_count == 0 && irr_blocksize == 0)
       return;
 
     while (ptr_pos < data_size)
     {
-
-      uint32_t block_crc = crc32(0L, Z_NULL, 0);
-      if (!(ptr_pos % block_size)) block_crc = crc32(block_crc, data_ptr, block_size);
-
-      uint32_t* crc_ptr = (ptr_pos % block_size) ? nullptr : &block_crc;
-      bool res = lambda(crc_ptr, data_ptr, block_count);
-      ptr_pos += (block_size + pre_offset + post_offset);
+      bool res = lambda(data_ptr, chunk_count);
+      ptr_pos += chunk_size;
       if (!res) break;
     }
   }

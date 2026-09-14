@@ -1,5 +1,6 @@
 #include "thread_worker.hpp"
 #include "passl/protocol.hpp"
+#include "protocol.hpp"
 #include "s_client.hpp"
 #include "tancrypt/dutils.hpp"
 #include <algorithm>
@@ -136,25 +137,18 @@ namespace passl
 
     // We must read size of the payload + uint32_t (to account for crc32)
     dutils::dbuffer key_data(descriptor.payload_size + sizeof(uint32_t));
-    rec_size = recv(client.fd, key_data.data(), key_data.size(), MSG_WAITALL);
+    rec_size = recv(client.fd, key_data.data(), key_data.size(), 0);
+
     if (!(rec_size > 0)) return;
 
-    dblock_iterator block_iterator(key_data.data(), descriptor.payload_size, descriptor.block_size, sizeof(uint32_t), 0);
-    block_iterator.iterate(
-        [this, &client](uint32_t* crc_local, unsigned char* data, size_t block_size) -> bool
-        {
-          // Extract preceeding crc32 of the data
-          uint32_t crc_received = *(uint32_t*)(data - sizeof(uint32_t));
-          if (*crc_local != crc_received)
-          {
-            remove_client(client.fd);
-            std::cout << "Pubkey corrupted, connection closed!" << std::endl;
-            return false;
-          }
-          client.client_key.loadPubDER(data, block_size);
-          return true;
-        });
+    if (!verify_block(key_data.data(), descriptor.block_size))
+    {
+      remove_client(client.fd);
+      std::cout << "Pubkey corrupted, connection closed! " << std::endl;
+      return;
+    }
 
+    client.client_key.loadPubDER(key_data.data() + sizeof(uint32_t), descriptor.payload_size);
     client.c_state = s_clistate::INIT_KEYPAIR;
   }
 
