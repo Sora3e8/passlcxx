@@ -1,7 +1,8 @@
 #include "thread_worker.hpp"
-#include "passl/protocol.hpp"
-#include "protocol.hpp"
-#include "s_client.hpp"
+#include "passl/protocol_data.hpp"
+#include "passl/protocol_sequence.hpp"
+#include "protocol_sequence.hpp"
+#include "session_structs.hpp"
 #include "tancrypt/dutils.hpp"
 #include <algorithm>
 #include <chrono>
@@ -28,7 +29,7 @@ namespace passl
   thread_worker::thread_worker()
   {
     cpoll = new pollfd[client_capacity];
-    clients = new s_client[client_capacity];
+    clients = new session_data[client_capacity];
 
     for (size_t i = 0; i < client_capacity; i++)
     {
@@ -46,7 +47,7 @@ namespace passl
     pollfd* new_cpoll = new pollfd[size];
     std::move(cpoll, cpoll + std::min(size, (size_t)client_count), new_cpoll);
 
-    s_client* new_clients = new s_client[size];
+    session_data* new_clients = new session_data[size];
     std::move(clients, clients + std::min(size, (size_t)client_count), new_clients);
 
     delete[] cpoll;
@@ -100,56 +101,11 @@ namespace passl
     cpoll[client_count].revents = 0;
 
     clients[client_count].fd = -1;
-    clients[client_count].server_key = tancrypt::RSA::pkic();
-    clients[client_count].client_key = tancrypt::RSA::pkic();
+    clients[client_count].our_key = tancrypt::RSA::pkic();
+    clients[client_count].foreign_key = tancrypt::RSA::pkic();
     clients[client_count].data = { };
-    clients[client_count].c_state = s_clistate::RET_PUBKEY;
+    clients[client_count].c_state = session_state::RET_PUBKEY;
     client_count += -1;
-  }
-
-  void thread_worker::keygen_and_send(s_client& client, size_t keysize)
-  {
-    std::cout << "Sending out server pubkey!" << std::endl;
-    client.server_key.generate_keypair(keysize);
-    client.c_state = s_clistate::RET_HEADER;
-  }
-
-  void thread_worker::retrieve_pubkey(s_client& client)
-  {
-    unsigned char p_header[passl::protocol_header::sizeof_protocol_header()];
-    int rec_size = 0;
-
-    // Size with -1 error guard
-    rec_size = recv(client.fd, &p_header, sizeof(p_header), 0);
-    if (!(rec_size > 0)) return;
-
-    protocol_descriptor descriptor;
-    if (!protocol_header::read_descriptor(p_header, rec_size, &descriptor))
-    {
-      remove_client(client.fd);
-      std::cout << "Connection closed:" << std::endl;
-      std::cout << passl::prot_errstr(descriptor.status) << std::endl;
-      return;
-    }
-
-    // Rec size flush
-    rec_size = 0;
-
-    // We must read size of the payload + uint32_t (to account for crc32)
-    dutils::dbuffer key_data(descriptor.payload_size + sizeof(uint32_t));
-    rec_size = recv(client.fd, key_data.data(), key_data.size(), 0);
-
-    if (!(rec_size > 0)) return;
-
-    if (!verify_block(key_data.data(), descriptor.block_size))
-    {
-      remove_client(client.fd);
-      std::cout << "Pubkey corrupted, connection closed! " << std::endl;
-      return;
-    }
-
-    client.client_key.loadPubDER(key_data.data() + sizeof(uint32_t), descriptor.payload_size);
-    client.c_state = s_clistate::INIT_KEYPAIR;
   }
 
   void thread_worker::handle_events()
@@ -162,11 +118,14 @@ namespace passl
       if (cpoll[i].revents & POLLIN)
       {
         // Attempts to retrieve client's pubkey if not yet retrieved
-        if (clients[i].c_state == s_clistate::RET_PUBKEY) retrieve_pubkey(clients[i]);
+        if (clients[i].c_state == session_state::RET_PUBKEY)
+        {
+          if (!protocol_sequence::retrieve_pubkey(clients[i].fd, clients[i].foreign_key)) remove_client(clients[i].fd);
+        }
 
         // Initializes key and sends if not ready - but this fires only when
         // client sends their key first!
-        if (clients[i].c_state == s_clistate::INIT_KEYPAIR) keygen_and_send(clients[i], 2048);
+        if (clients[i].c_state == session_state::INIT_KEYPAIR) keygen_and_send(clients[i], 2048);
       }
     }
   }

@@ -125,23 +125,6 @@ namespace passl
     return (crc_local == crc_received);
   }
 
-  void chunk_iterator::iterate(const std::function<bool(unsigned char* data, size_t data_size)> lambda)
-  {
-    unsigned char* data_ptr = data + ptr_pos;
-    size_t irr_blocksize = data_size % chunk_size;
-
-    // Safeguard if size 0
-    if (chunk_count == 0 && irr_blocksize == 0)
-      return;
-
-    while (ptr_pos < data_size)
-    {
-      bool res = lambda(data_ptr, chunk_count);
-      ptr_pos += chunk_size;
-      if (!res) break;
-    }
-  }
-
   unsigned char* protocol_header::get_serialized()
   {
     unsigned char* serial_data = new unsigned char[sizeof_protocol_header()];

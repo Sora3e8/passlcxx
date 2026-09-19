@@ -1,5 +1,4 @@
 #include "server.hpp"
-#include "s_client.hpp"
 #include "tancrypt/rsa.hpp"
 #include <asm-generic/socket.h>
 #include <cstdint>

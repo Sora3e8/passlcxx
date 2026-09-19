@@ -1,6 +1,7 @@
 #include "client.hpp"
-#include "passl/protocol.hpp"
-#include "protocol.hpp"
+#include "passl/protocol_sequence.hpp"
+#include "protocol_sequence.hpp"
+#include "session_structs.hpp"
 #include "tancrypt/rsa.hpp"
 #include <arpa/inet.h>
 #include <cerrno>
@@ -33,24 +34,7 @@ namespace passl
       return;
     }
 
-    // Initialize keypair and extract pubkey
-    tancrypt::RSA::pkic client_key;
-    client_key.generate_keypair(key_bitsize);
-    dutils::dbuffer client_pubkey = client_key.getPubDER();
-
-    // Prepare header to carry the pubkey
-    passl::protocol_header header(1, client_pubkey.size(), client_pubkey.size());
-    unsigned char* header_serialized = header.get_serialized();
-
-    // Correct the endians for sending over network
-
-    uint32_t crc32 = crc_block(client_pubkey.data(), client_pubkey.size());
-
-    send(sock, header_serialized, passl::protocol_header::sizeof_protocol_header(), 0);
-    delete[] header_serialized;
-
-    send(sock, (unsigned char*)(&crc32), sizeof(uint32_t), 0);
-    send(sock, client_pubkey.data(), client_pubkey.size(), 0);
+    protocol_sequence::keygen_and_send(res, s_data.our_key, key_bitsize);
   }
 
   client::~client()

@@ -2,16 +2,16 @@
 #define THREAD_WORKER_HPP
 #include "fatomic.hpp"
 #include <cstddef>
-#include <thread>
 #include <mutex>
+#include <thread>
 
 struct pollfd;
 
-namespace passl 
+namespace passl
 {
-  struct s_client;
+  struct session_data;
 
-  class thread_worker 
+  class thread_worker
   {
     public:
       thread_worker();
@@ -27,13 +27,13 @@ namespace passl
       void handle_events();
       void client_handler();
       void resize_cap(size_t size);
-      void retrieve_pubkey(s_client &client);
-      void keygen_and_send(s_client &client, size_t keysize);
-      pollfd *cpoll = nullptr;
-      s_client *clients = nullptr;
+      void retrieve_pubkey(session_data& client);
+      void keygen_and_send(session_data& client, size_t keysize);
+      pollfd* cpoll = nullptr;
+      session_data* clients = nullptr;
       std::thread t;
-      fatomic<size_t> client_count{0};
-      fatomic<size_t> client_capacity{2};
+      fatomic<size_t> client_count { 0 };
+      fatomic<size_t> client_capacity { 2 };
       std::mutex client_mutex;
   };
 
