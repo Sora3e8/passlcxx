@@ -34,7 +34,7 @@ namespace passl
       return;
     }
 
-    protocol_sequence::keygen_and_send(res, s_data.our_key, key_bitsize);
+    protocol_sequence::keygen_and_send(sock, s_data.our_key, key_bitsize);
   }
 
   client::~client()

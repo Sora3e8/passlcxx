@@ -1,6 +1,7 @@
 #ifndef PASSLCXX_SESSION_STRUCTS_HPP
 #define PASSLCXX_SESSION_STRUCTS_HPP
 
+#include "protocol_data.hpp"
 #include "tancrypt/pkic.hpp"
 
 struct pollfd;
@@ -24,6 +25,7 @@ namespace passl
       tancrypt::RSA::pkic our_key;
       tancrypt::RSA::pkic foreign_key;
       dutils::dbuffer data;
+      protocol_data::protocol_descriptor prot_data;
   };
 }
 #endif

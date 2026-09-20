@@ -45,11 +45,13 @@ namespace passl
       dutils::dbuffer key_data(descriptor.payload_size + sizeof(uint32_t));
       rec_size = recv(sock, key_data.data(), key_data.size(), 0);
 
-      if (!(rec_size > 0)) return false;
+      if (!(rec_size > 0))
+      {
+        descriptor.status = protocol_status::invalid_data_descriptor;
+        return false;
+      }
 
-      if (!verify_block(key_data.data(), descriptor.block_size))
-
-        key_buffer.loadPubDER(key_data.data() + sizeof(uint32_t), descriptor.payload_size);
+      if (!verify_block(key_data.data(), descriptor.block_size)) key_buffer.loadPubDER(key_data.data() + sizeof(uint32_t), descriptor.payload_size);
 
       return true;
     }

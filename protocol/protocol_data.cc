@@ -21,6 +21,27 @@ namespace passl
 {
   namespace protocol_data
   {
+
+    protocol_header::protocol_header() { }
+    protocol_header::protocol_header(uint8_t type, size_t payload_size, size_t block_size)
+    {
+      p_section.type = type;
+      d_section.payload_size = payload_size;
+      d_section.block_size = block_size;
+
+      p_section.crc = crc32(0L, Z_NULL, 0);
+      p_section.crc = crc32(p_section.crc, (unsigned char*)(p_section.signature), sizeof(protocol_section::signature));
+      p_section.crc = crc32(p_section.crc, (unsigned char*)((&p_section.type)), sizeof(protocol_section::type));
+      // Correct endians
+      p_section.crc = htonl(p_section.crc);
+
+      d_section.crc = crc32(0L, Z_NULL, 0);
+      d_section.crc = crc32(d_section.crc, (unsigned char*)(d_section.signature), sizeof(data_section::signature));
+      d_section.crc = crc32(d_section.crc, (unsigned char*)(&d_section.payload_size), sizeof(data_section::payload_size));
+      d_section.crc = crc32(d_section.crc, (unsigned char*)(&d_section.block_size), sizeof(data_section::block_size));
+      d_section.crc = htonl(d_section.crc);
+    }
+
     bool protocol_header::read_descriptor(unsigned char* data, size_t size, protocol_descriptor* descriptor)
     {
       /* size_checks */

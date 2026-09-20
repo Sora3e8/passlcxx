@@ -1,7 +1,6 @@
 #include "thread_worker.hpp"
-#include "passl/protocol_data.hpp"
 #include "passl/protocol_sequence.hpp"
-#include "protocol_sequence.hpp"
+#include "protocol_data.hpp"
 #include "session_structs.hpp"
 #include "tancrypt/dutils.hpp"
 #include <algorithm>
@@ -120,12 +119,27 @@ namespace passl
         // Attempts to retrieve client's pubkey if not yet retrieved
         if (clients[i].c_state == session_state::RET_PUBKEY)
         {
-          if (!protocol_sequence::retrieve_pubkey(clients[i].fd, clients[i].foreign_key)) remove_client(clients[i].fd);
+          if (protocol_sequence::retrieve_pubkey(clients[i].fd, clients[i].foreign_key, clients[i].prot_data))
+          {
+            clients[i].c_state = session_state::INIT_KEYPAIR;
+            std::cout << "Key retrieval succeeded!" << std::endl;
+          }
+          else
+          {
+            std::cout << "Key retrieval failed!" << std::endl;
+            std::cout << protocol_data::prot_errstr(clients[i].prot_data.status) << std::endl;
+            remove_client(clients[i].fd);
+            continue;
+          }
         }
 
         // Initializes key and sends if not ready - but this fires only when
         // client sends their key first!
-        if (clients[i].c_state == session_state::INIT_KEYPAIR) keygen_and_send(clients[i], 2048);
+        if (clients[i].c_state == session_state::INIT_KEYPAIR)
+        {
+          protocol_sequence::keygen_and_send(clients[i].fd, clients[i].our_key, 2048);
+          clients[i].c_state = session_state::RET_PUBKEY;
+        }
       }
     }
   }
