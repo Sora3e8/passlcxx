@@ -2,6 +2,7 @@
 #include "protocol_data.hpp"
 #include "tancrypt/dutils.hpp"
 #include "tancrypt/rsa.hpp"
+#include <cstdint>
 #include <netinet/in.h>
 #include <sys/socket.h>
 
@@ -43,7 +44,7 @@ namespace passl
 
       // We must read size of the payload + uint32_t (to account for crc32)
       dutils::dbuffer key_data(descriptor.payload_size + sizeof(uint32_t));
-      rec_size = recv(sock, key_data.data(), key_data.size(), 0);
+      rec_size = recv(sock, key_data.data(), key_data.size(), MSG_WAITALL);
 
       if (!(rec_size > 0))
       {
@@ -51,7 +52,14 @@ namespace passl
         return false;
       }
 
-      if (!verify_block(key_data.data(), descriptor.block_size)) key_buffer.loadPubDER(key_data.data() + sizeof(uint32_t), descriptor.payload_size);
+      if (verify_block(key_data.data(), descriptor.block_size))
+      {
+        key_buffer.loadPubDER(key_data.data() + sizeof(uint32_t), descriptor.block_size);
+      }
+      else
+      {
+        return false;
+      }
 
       return true;
     }

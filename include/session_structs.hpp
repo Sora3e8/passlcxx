@@ -21,11 +21,11 @@ namespace passl
   {
       int fd = -1;
       bool has_update = false;
-      session_state c_state = session_state::RET_PUBKEY;
+      session_state state = session_state::INVALID_STATE;
       tancrypt::RSA::pkic our_key;
       tancrypt::RSA::pkic foreign_key;
       dutils::dbuffer data;
-      protocol_data::protocol_descriptor prot_data;
+      protocol_data::protocol_descriptor prot_descr;
   };
 }
 #endif

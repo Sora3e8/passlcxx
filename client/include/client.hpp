@@ -9,8 +9,6 @@ struct sockaddr_in;
 
 namespace passl
 {
-  struct session_data_t;
-
   class client
   {
     public:
@@ -21,8 +19,7 @@ namespace passl
       size_t key_bitsize = 3072;
 
     private:
-      int sock = -1;
-      sockaddr_in* conn_addr;
+      sockaddr_in* conn_addr = nullptr;
   };
 } // namespace passl
 

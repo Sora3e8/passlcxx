@@ -24,7 +24,6 @@ inline uint32_t bswap32(uint32_t value)
 
 namespace passl
 {
-
   thread_worker::thread_worker()
   {
     cpoll = new pollfd[client_capacity];
@@ -68,6 +67,7 @@ namespace passl
     cpoll[client_count].fd = fd;
     cpoll[client_count].events = POLLIN | POLLHUP;
     clients[client_count].fd = fd;
+    clients[client_count].state = session_state::RET_PUBKEY;
 
     client_count++;
 
@@ -103,7 +103,7 @@ namespace passl
     clients[client_count].our_key = tancrypt::RSA::pkic();
     clients[client_count].foreign_key = tancrypt::RSA::pkic();
     clients[client_count].data = { };
-    clients[client_count].c_state = session_state::RET_PUBKEY;
+    clients[client_count].state = session_state::RET_PUBKEY;
     client_count += -1;
   }
 
@@ -117,17 +117,17 @@ namespace passl
       if (cpoll[i].revents & POLLIN)
       {
         // Attempts to retrieve client's pubkey if not yet retrieved
-        if (clients[i].c_state == session_state::RET_PUBKEY)
+        if (clients[i].state == session_state::RET_PUBKEY)
         {
-          if (protocol_sequence::retrieve_pubkey(clients[i].fd, clients[i].foreign_key, clients[i].prot_data))
+          if (protocol_sequence::retrieve_pubkey(clients[i].fd, clients[i].foreign_key, clients[i].prot_descr))
           {
-            clients[i].c_state = session_state::INIT_KEYPAIR;
+            clients[i].state = session_state::INIT_KEYPAIR;
             std::cout << "Key retrieval succeeded!" << std::endl;
           }
           else
           {
             std::cout << "Key retrieval failed!" << std::endl;
-            std::cout << protocol_data::prot_errstr(clients[i].prot_data.status) << std::endl;
+            std::cout << protocol_data::prot_errstr(clients[i].prot_descr.status) << std::endl;
             remove_client(clients[i].fd);
             continue;
           }
@@ -135,10 +135,10 @@ namespace passl
 
         // Initializes key and sends if not ready - but this fires only when
         // client sends their key first!
-        if (clients[i].c_state == session_state::INIT_KEYPAIR)
+        if (clients[i].state == session_state::INIT_KEYPAIR)
         {
-          protocol_sequence::keygen_and_send(clients[i].fd, clients[i].our_key, 2048);
-          clients[i].c_state = session_state::RET_PUBKEY;
+          protocol_sequence::keygen_and_send(clients[i].fd, clients[i].our_key, 3072);
+          clients[i].state = session_state::RET_PUBKEY;
         }
       }
     }

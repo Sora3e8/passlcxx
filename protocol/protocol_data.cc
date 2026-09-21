@@ -1,6 +1,7 @@
 #include "protocol_data.hpp"
 #include "zlib.h"
 #include <cstring>
+#include <iostream>
 #include <stdexcept>
 
 uint32_t htonl(uint32_t x)
@@ -139,7 +140,8 @@ namespace passl
     {
       uint32_t crc_received = *(uint32_t*)data;
       uint32_t crc_local = crc_block(data + sizeof(uint32_t), block_size);
-
+      std::cout << "Local: " << crc_local << std::endl;
+      std::cout << "Received: " << crc_received << std::endl;
       return (crc_local == crc_received);
     }
 
