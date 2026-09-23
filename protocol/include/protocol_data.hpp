@@ -31,7 +31,7 @@ namespace passl
         unsigned char* data = nullptr;
     };
 
-    uint32_t crc_block(unsigned char* data, size_t block_size);
+    uint32_t crc_block(const unsigned char* data, size_t block_size);
 
     enum protocol_status
     {
@@ -75,10 +75,17 @@ namespace passl
     class protocol_header
     {
       public:
+        enum header_type : uint8_t
+        {
+          handshake_pubkey = 1,
+          handshake_sharedfrag = 2,
+          encrypted_exchange = 3,
+        };
+
         struct protocol_section
         {
             constexpr static uint8_t signature[5] = { 0x50, 0x41, 0x53, 0x53, 0x4c };
-            uint8_t type;
+            header_type type;
             uint32_t crc;
         } p_section;
         struct data_section
@@ -90,7 +97,7 @@ namespace passl
         } d_section;
 
         protocol_header();
-        protocol_header(uint8_t type, size_t payload_size, size_t block_size);
+        protocol_header(protocol_header::header_type type, size_t payload_size, size_t block_size);
 
         static constexpr size_t sizeof_protocol_section()
         {
@@ -118,7 +125,7 @@ namespace passl
         void serialize(unsigned char* buffer_ref);
     };
 
-    bool verify_block(unsigned char* data, size_t block_size);
+    bool verify_block(const unsigned char* data, size_t block_size);
 
   }
 }

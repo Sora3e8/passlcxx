@@ -24,7 +24,7 @@ namespace passl
   {
 
     protocol_header::protocol_header() { }
-    protocol_header::protocol_header(uint8_t type, size_t payload_size, size_t block_size)
+    protocol_header::protocol_header(protocol_header::header_type type, size_t payload_size, size_t block_size)
     {
       p_section.type = type;
       d_section.payload_size = payload_size;
@@ -127,7 +127,7 @@ namespace passl
       }
     }
 
-    uint32_t crc_block(unsigned char* data, size_t block_size)
+    uint32_t crc_block(const unsigned char* data, size_t block_size)
     {
       uint32_t crc = crc32(0L, Z_NULL, 0);
       crc = crc32(crc, data, block_size);
@@ -136,7 +136,7 @@ namespace passl
     }
 
     // Returns true if matches or false if not
-    bool verify_block(unsigned char* data, size_t block_size)
+    bool verify_block(const unsigned char* data, size_t block_size)
     {
       uint32_t crc_received = *(uint32_t*)data;
       uint32_t crc_local = crc_block(data + sizeof(uint32_t), block_size);

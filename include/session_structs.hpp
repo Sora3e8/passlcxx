@@ -23,6 +23,7 @@ namespace passl
       bool has_update = false;
       session_state state = session_state::INVALID_STATE;
       tancrypt::RSA::pkic our_key;
+      dutils::dbuffer shared_key;
       tancrypt::RSA::pkic foreign_key;
       dutils::dbuffer data;
       protocol_data::protocol_descriptor prot_descr;

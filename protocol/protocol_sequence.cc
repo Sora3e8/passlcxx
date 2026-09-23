@@ -1,5 +1,6 @@
 #include "protocol_sequence.hpp"
 #include "protocol_data.hpp"
+#include "tancrypt/aes.hpp"
 #include "tancrypt/dutils.hpp"
 #include "tancrypt/rsa.hpp"
 #include <cstdint>
@@ -12,13 +13,14 @@ namespace passl
 {
   namespace protocol_sequence
   {
+    using header_type = protocol_header::header_type;
     void keygen_and_send(int sock, tancrypt::RSA::pkic& key_buffer, size_t keysize)
     {
       key_buffer.generate_keypair(keysize);
       dutils::dbuffer client_pubkey = key_buffer.getPubDER();
 
       // Prepare header to carry the pubkey
-      protocol_header header(1, client_pubkey.size(), client_pubkey.size());
+      protocol_header header(header_type::handshake_pubkey, client_pubkey.size(), client_pubkey.size());
       unsigned char header_serialized[protocol_header::sizeof_protocol_header()];
       header.serialize(header_serialized);
       uint32_t crc32 = crc_block(client_pubkey.data(), client_pubkey.size());
@@ -62,6 +64,29 @@ namespace passl
       }
 
       return true;
+    }
+
+    void sharedfraggen_and_send(int sock, tancrypt::AES::keyc* ssecret_buffer, exchange_role role)
+    {
+      using namespace tancrypt;
+
+      unsigned int memoffset = 0;
+      size_t frag_size = AES::RefKeylen(AES::Type::CBC256) / 2;
+
+      AES::keyc shared_fragment = AES::keyc::randomKey(frag_size, AES::Type::CBC256);
+      // Offsets the shared secret depending on the role in the protocol, client's half goes always first!
+      if (role == exchange_role::server) memoffset += frag_size;
+      // Writes half of the shared secret into session buffer
+      memcpy((char*)(ssecret_buffer->getKey().data() + memoffset), (char*)shared_fragment.getKey().data(), shared_fragment.getKey().size());
+
+      protocol_header header(header_type::handshake_sharedfrag, shared_fragment.getKey().size(), shared_fragment.getKey().size());
+      unsigned char header_serialized[protocol_header::sizeof_protocol_header()];
+      header.serialize(header_serialized);
+      uint32_t crc32 = crc_block(shared_fragment.getKey().data(), shared_fragment.getKey().size());
+
+      send(sock, header_serialized, protocol_header::sizeof_protocol_header(), 0);
+      send(sock, (unsigned char*)(&crc32), sizeof(uint32_t), 0);
+      send(sock, shared_fragment.getKey().data(), shared_fragment.getKey().size(), 0);
     }
 
   }
