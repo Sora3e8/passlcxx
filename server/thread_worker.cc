@@ -1,6 +1,8 @@
 #include "thread_worker.hpp"
+#include "fatomic.hpp"
 #include "passl/protocol_sequence.hpp"
 #include "protocol_data.hpp"
+#include "protocol_sequence.hpp"
 #include "session_structs.hpp"
 #include "tancrypt/dutils.hpp"
 #include <algorithm>
@@ -53,6 +55,7 @@ namespace passl
 
     cpoll = new_cpoll;
     clients = new_clients;
+    this->client_capacity = size;
   }
 
   void thread_worker::add_client(int fd)
@@ -78,6 +81,7 @@ namespace passl
   {
     delete[] cpoll;
     delete[] clients;
+    this->t.join();
   }
 
   void thread_worker::remove_client(int fd)
@@ -138,7 +142,29 @@ namespace passl
         if (clients[i].state == session_state::INIT_KEYPAIR)
         {
           protocol_sequence::keygen_and_send(clients[i].fd, clients[i].our_key, 3072);
-          clients[i].state = session_state::RET_PUBKEY;
+          clients[i].state = session_state::RET_SHAREDFRAG;
+        }
+
+        if (clients[i].state == session_state::RET_SHAREDFRAG)
+        {
+          bool res = protocol_sequence::retrieve_sharedfrag(clients[i].fd, &clients[i].shared_secret, protocol_sequence::exchange_role::server, clients[i].prot_descr);
+          if (res)
+          {
+            std::cout << "Shared secret fragment retrieval succeeded!" << std::endl;
+            clients[i].state = session_state::INIT_SHAREDFRAG;
+          }
+          else
+          {
+            std::cout << "Shared secret fragment retrieval failed!" << std::endl;
+            std::cout << protocol_data::prot_errstr(clients[i].prot_descr.status) << std::endl;
+            remove_client(clients[i].fd);
+            continue;
+          }
+        }
+
+        if (clients[i].state == session_state::INIT_SHAREDFRAG)
+        {
+          protocol_sequence::sharedfraggen_and_send(clients[i].fd, &clients[i].shared_secret, protocol_sequence::exchange_role::server);
         }
       }
     }

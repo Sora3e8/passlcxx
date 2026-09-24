@@ -21,6 +21,7 @@ namespace passl
 
   void client::connect(const char* address, uint32_t port)
   {
+    using exchange_role = protocol_sequence::exchange_role;
     conn_addr = new sockaddr_in();
     conn_addr->sin_family = AF_INET;
     conn_addr->sin_port = htons(port);
@@ -36,7 +37,10 @@ namespace passl
 
     protocol_sequence::keygen_and_send(s_data.fd, s_data.our_key, key_bitsize);
     bool succ = protocol_sequence::retrieve_pubkey(s_data.fd, s_data.foreign_key, s_data.prot_descr);
-    if (succ) std::cout << "Key received!!!" << std::endl;
+    if (succ) std::cout << "Pubkey received" << std::endl;
+    protocol_sequence::sharedfraggen_and_send(s_data.fd, &s_data.shared_secret, exchange_role::client);
+    succ = protocol_sequence::retrieve_sharedfrag(s_data.fd, &s_data.shared_secret, exchange_role::client, s_data.prot_descr);
+    if (succ) std::cout << "Shared secret fragment received" << std::endl;
   }
 
   client::~client()

@@ -24,7 +24,7 @@ namespace passl
   {
 
     protocol_header::protocol_header() { }
-    protocol_header::protocol_header(protocol_header::header_type type, size_t payload_size, size_t block_size)
+    protocol_header::protocol_header(protocol_exchtype type, size_t payload_size, size_t block_size)
     {
       p_section.type = type;
       d_section.payload_size = payload_size;
@@ -83,7 +83,7 @@ namespace passl
       /* p_section verify end*/
 
       /* p_section write */
-      descriptor->type = *(uint8_t*)(data + sizeof(protocol_section::signature));
+      descriptor->type = *(protocol_exchtype*)(data + sizeof(protocol_section::signature));
       /* p_section write end */
 
       /* d_section_verify */

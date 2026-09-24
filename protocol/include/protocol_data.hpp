@@ -43,9 +43,16 @@ namespace passl
       truncated_data
     };
 
+    enum protocol_exchtype : uint8_t
+    {
+      handshake_pubkey = 1,
+      handshake_sharedfrag = 2,
+      encrypted_exchange = 3,
+    };
+
     struct protocol_descriptor
     {
-        uint8_t type;
+        protocol_exchtype type;
         size_t payload_size;
         size_t block_size;
         protocol_status status;
@@ -75,17 +82,10 @@ namespace passl
     class protocol_header
     {
       public:
-        enum header_type : uint8_t
-        {
-          handshake_pubkey = 1,
-          handshake_sharedfrag = 2,
-          encrypted_exchange = 3,
-        };
-
         struct protocol_section
         {
             constexpr static uint8_t signature[5] = { 0x50, 0x41, 0x53, 0x53, 0x4c };
-            header_type type;
+            protocol_exchtype type;
             uint32_t crc;
         } p_section;
         struct data_section
@@ -97,7 +97,7 @@ namespace passl
         } d_section;
 
         protocol_header();
-        protocol_header(protocol_header::header_type type, size_t payload_size, size_t block_size);
+        protocol_header(protocol_exchtype type, size_t payload_size, size_t block_size);
 
         static constexpr size_t sizeof_protocol_section()
         {

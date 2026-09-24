@@ -75,7 +75,7 @@ namespace passl
 
       if (signal_handler::signal & SIGINT)
       {
-        std::cout << "Interrupt detected" << std::endl;
+        std::cout << "\nShutting down the server." << std::endl;
         for (size_t i = 0; i < worker_count; i++)
         {
           workers[i]._shutdown = true;

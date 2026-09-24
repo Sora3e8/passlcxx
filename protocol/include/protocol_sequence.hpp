@@ -28,6 +28,7 @@ namespace passl
     void keygen_and_send(int sock, tancrypt::RSA::pkic& key_buffer, size_t keysize);
     void sharedfraggen_and_send(int sock, tancrypt::AES::keyc* ssecret_buffer, exchange_role role);
     bool retrieve_pubkey(int sock, tancrypt::RSA::pkic& key_buffer, protocol_descriptor& descriptor);
+    bool retrieve_sharedfrag(int sock, tancrypt::AES::keyc* ssecret_buffer, exchange_role role, protocol_descriptor& descriptor);
   }
 }
 #endif
