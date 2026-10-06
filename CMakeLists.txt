@@ -9,8 +9,13 @@ include(GNUInstallDirs)
 
 target_compile_options(${PROJECT_NAME}
   INTERFACE
-  $<$<CONFIG:Debug>: -Wall -Wextra -Wpedantic>
+  $<$<CONFIG:Debug>: -Wall -Wextra -Wpedantic -fsanitize=address -fno-omit-frame-pointer>
   $<$<CONFIG:Release>: -O3>
+)
+
+target_link_options(${PROJECT_NAME}
+  INTERFACE
+  $<$<CONFIG:Debug>:-fsanitize=address>
 )
 
 file(GLOB_RECURSE SHARED_SRCS INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/src/*.cc)
