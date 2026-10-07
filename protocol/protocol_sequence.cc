@@ -15,6 +15,18 @@ namespace passl
 {
   namespace protocol_sequence
   {
+    bool retrieve_header(int sock, protocol_descriptor& descriptor)
+    {
+      unsigned char p_header[protocol_header::sizeof_protocol_header()];
+      int rec_size = 0;
+      // Size with -1 error guard
+      rec_size = recv(sock, &p_header, sizeof(p_header), 0);
+      if (!(rec_size > 0)) return false;
+      if (!protocol_header::read_descriptor(p_header, rec_size, &descriptor)) return false;
+
+      return true;
+    }
+
     void keygen_and_send(int sock, tancrypt::RSA::pkic& key_buffer, size_t keysize)
     {
       key_buffer.generate_keypair(keysize);
@@ -33,23 +45,7 @@ namespace passl
 
     bool retrieve_pubkey(int sock, tancrypt::RSA::pkic& key_buffer, protocol_descriptor& descriptor)
     {
-      unsigned char p_header[protocol_header::sizeof_protocol_header()];
       int rec_size = 0;
-
-      // Size with -1 error guard
-      rec_size = recv(sock, &p_header, sizeof(p_header), 0);
-      if (!(rec_size > 0)) return false;
-
-      if (!protocol_header::read_descriptor(p_header, rec_size, &descriptor)) return false;
-      if (descriptor.type != protocol_exchtype::handshake_pubkey)
-      {
-        descriptor.status = protocol_status::state_mismatch;
-        return false;
-      }
-
-      // Rec size flush
-      rec_size = 0;
-
       // We must read size of the payload + uint32_t (to account for crc32)
       dutils::dbuffer key_data(descriptor.payload_size + sizeof(uint32_t));
       rec_size = recv(sock, key_data.data(), key_data.size(), MSG_WAITALL);
@@ -77,14 +73,8 @@ namespace passl
       using namespace tancrypt;
       size_t frag_size = AES::RefKeylen(AES::Type::CBC256) / 2;
       if (ssecret_buffer->getKey().size() == 0) ssecret_buffer->_key.resize0(frag_size * 2);
-      unsigned char p_header[protocol_header::sizeof_protocol_header()];
       int rec_size = 0;
 
-      // Size with -1 error guard
-      rec_size = recv(sock, &p_header, sizeof(p_header), 0);
-      if (!(rec_size > 0)) return false;
-
-      if (!protocol_header::read_descriptor(p_header, rec_size, &descriptor)) return false;
       if (descriptor.type != protocol_exchtype::handshake_sharedfrag)
       {
         descriptor.status = protocol_status::state_mismatch;
@@ -95,9 +85,6 @@ namespace passl
         descriptor.status = protocol_status::invalid_data_descriptor;
         return false;
       }
-
-      // Rec size flush
-      rec_size = 0;
 
       // We must read size of the payload + uint32_t (to account for crc32)
       dutils::dbuffer frag_data(descriptor.payload_size + sizeof(uint32_t));

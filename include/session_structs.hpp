@@ -10,20 +10,17 @@ struct pollfd;
 
 namespace passl
 {
-  enum class session_state : int8_t
+  enum class session_state : uint8_t
   {
-    INVALID_STATE = -1,
-    RET_PUBKEY,
-    INIT_KEYPAIR,
-    RET_SHAREDFRAG,
-    INIT_SHAREDFRAG,
+    INVALID_STATE = 0,
     RET_HEADER,
-    PENDING_DATA
+    RET_DATA
   };
 
   enum session_phase : uint8_t
   {
-    AS_HANDSHAKE = 0,
+    INVALID_PHASE = 0,
+    ASYM_HANDSHAKE,
     SYM_HANDSHAKE,
     ENC_EXCHANGE
   };
@@ -32,7 +29,7 @@ namespace passl
   {
       int fd = -1;
       bool has_update = false;
-      session_phase phase = AS_HANDSHAKE;
+      session_phase phase = session_phase::INVALID_PHASE;
       session_state state = session_state::INVALID_STATE;
       tancrypt::RSA::pkic our_key;
       tancrypt::AES::keyc shared_secret;

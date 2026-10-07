@@ -36,10 +36,15 @@ namespace passl
     }
 
     protocol_sequence::keygen_and_send(s_data.fd, s_data.our_key, key_bitsize);
+    protocol_sequence::retrieve_header(s_data.fd, s_data.prot_descr);
     bool succ = protocol_sequence::retrieve_pubkey(s_data.fd, s_data.foreign_key, s_data.prot_descr);
-    if (succ) std::cout << "Pubkey received" << std::endl;
-    protocol_sequence::sharedfraggen_and_send(s_data.fd, &s_data.shared_secret, exchange_role::client);
-    succ = protocol_sequence::retrieve_sharedfrag(s_data.fd, &s_data.shared_secret, exchange_role::client, s_data.prot_descr);
+    if (succ)
+    {
+      std::cout << "Pubkey received" << std::endl;
+      protocol_sequence::sharedfraggen_and_send(s_data.fd, &s_data.shared_secret, exchange_role::client);
+      protocol_sequence::retrieve_header(s_data.fd, s_data.prot_descr);
+      succ = protocol_sequence::retrieve_sharedfrag(s_data.fd, &s_data.shared_secret, exchange_role::client, s_data.prot_descr);
+    }
     if (succ) std::cout << "Shared secret fragment received" << std::endl;
   }
 

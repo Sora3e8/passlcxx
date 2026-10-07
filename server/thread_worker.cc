@@ -70,7 +70,8 @@ namespace passl
     cpoll[client_count].fd = fd;
     cpoll[client_count].events = POLLIN | POLLHUP;
     clients[client_count].fd = fd;
-    clients[client_count].state = session_state::RET_PUBKEY;
+    clients[client_count].phase = session_phase::ASYM_HANDSHAKE;
+    clients[client_count].state = session_state::RET_HEADER;
 
     client_count++;
 
@@ -107,64 +108,69 @@ namespace passl
     clients[client_count].our_key = tancrypt::RSA::pkic();
     clients[client_count].foreign_key = tancrypt::RSA::pkic();
     clients[client_count].data = { };
-    clients[client_count].state = session_state::RET_PUBKEY;
+    clients[client_count].phase = session_phase::INVALID_PHASE;
+    clients[client_count].state = session_state::INVALID_STATE;
     client_count += -1;
   }
 
   void thread_worker::handle_events()
   {
+    using exchange_role = protocol_sequence::exchange_role;
+
     for (size_t i = 0; i < client_count; i++)
     {
+      if (!(cpoll[i].revents & POLLIN)) continue;
+
       char tmp; // Handles clientside disconnects
       if (cpoll[i].revents & POLLHUP || recv(cpoll[i].fd, &tmp, 1, MSG_PEEK | MSG_DONTWAIT) == 0) remove_client(cpoll[i].fd);
 
-      if (cpoll[i].revents & POLLIN)
+      // Retrieves header and saves data to protocol descriptor, kicks client if invalid
+      if (clients[i].state == session_state::RET_HEADER)
       {
-        // Attempts to retrieve client's pubkey if not yet retrieved
-        if (clients[i].state == session_state::RET_PUBKEY)
+        if (protocol_sequence::retrieve_header(clients[i].fd, clients[i].prot_descr))
         {
-          if (protocol_sequence::retrieve_pubkey(clients[i].fd, clients[i].foreign_key, clients[i].prot_descr))
-          {
-            clients[i].state = session_state::INIT_KEYPAIR;
-            std::cout << "Key retrieval succeeded!" << std::endl;
-          }
-          else
-          {
-            std::cout << "Key retrieval failed!" << std::endl;
-            std::cout << protocol_data::prot_errstr(clients[i].prot_descr.status) << std::endl;
-            remove_client(clients[i].fd);
-            continue;
-          }
+          clients[i].state = session_state::RET_DATA;
         }
-
-        // Initializes key and sends if not ready - but this fires only when
-        // client sends their key first!
-        if (clients[i].state == session_state::INIT_KEYPAIR)
+        else
         {
-          protocol_sequence::keygen_and_send(clients[i].fd, clients[i].our_key, 3072);
-          clients[i].state = session_state::RET_SHAREDFRAG;
+          remove_client(clients[i].fd);
+          continue;
         }
+      }
 
-        if (clients[i].state == session_state::RET_SHAREDFRAG)
+      if (clients[i].state == session_state::RET_DATA)
+      {
+        bool res = false;
+        switch (clients[i].phase)
         {
-          bool res = protocol_sequence::retrieve_sharedfrag(clients[i].fd, &clients[i].shared_secret, protocol_sequence::exchange_role::server, clients[i].prot_descr);
-          if (res)
-          {
-            std::cout << "Shared secret fragment retrieval succeeded!" << std::endl;
-            clients[i].state = session_state::INIT_SHAREDFRAG;
-          }
-          else
-          {
-            std::cout << "Shared secret fragment retrieval failed!" << std::endl;
-            std::cout << protocol_data::prot_errstr(clients[i].prot_descr.status) << std::endl;
-            remove_client(clients[i].fd);
-            continue;
-          }
+          case session_phase::ASYM_HANDSHAKE:
+            res = protocol_sequence::retrieve_pubkey(clients[i].fd, clients[i].foreign_key, clients[i].prot_descr);
+            if (res)
+            {
+              protocol_sequence::keygen_and_send(clients[i].fd, clients[i].our_key, 3072);
+              clients[i].phase = session_phase::SYM_HANDSHAKE;
+              clients[i].state = session_state::RET_HEADER;
+            }
+            break;
+
+          case session_phase::SYM_HANDSHAKE:
+            res = protocol_sequence::retrieve_sharedfrag(clients[i].fd, &clients[i].shared_secret, exchange_role::server, clients[i].prot_descr);
+            if (res)
+            {
+              protocol_sequence::sharedfraggen_and_send(clients[i].fd, &clients[i].shared_secret, exchange_role::server);
+              clients[i].phase = session_phase::ENC_EXCHANGE;
+              clients[i].state = session_state::RET_HEADER;
+            }
+            break;
+
+          default:
+            break;
         }
-
-        if (clients[i].state == session_state::INIT_SHAREDFRAG)
+        if (!res)
         {
-          protocol_sequence::sharedfraggen_and_send(clients[i].fd, &clients[i].shared_secret, protocol_sequence::exchange_role::server);
+          std::cout << protocol_data::prot_errstr(clients[i].prot_descr.status) << std::endl;
+          remove_client(clients[i].fd);
+          continue;
         }
       }
     }
