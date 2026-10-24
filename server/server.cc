@@ -1,6 +1,7 @@
 #include "server.hpp"
 #include "tancrypt/rsa.hpp"
-#include <asm-generic/socket.h>
+#include <arpa/inet.h>
+#include <csignal>
 #include <cstdint>
 #include <cstring>
 #include <iostream>
@@ -8,6 +9,7 @@
 #include <poll.h>
 #include <pthread.h>
 #include <signal_handler.h>
+#include <sys/epoll.h>
 #include <sys/poll.h>
 #include <sys/socket.h>
 #include <system_error>
@@ -32,9 +34,11 @@ namespace passl
     if (sock < 0) throw_serrno("[passl::server] Could not create socket");
 
     // Admission poll
-    apoll = new pollfd();
-    apoll->fd = sock;
-    apoll->events = POLLIN;
+    apoll = epoll_create1(0);
+    epoll_event events;
+    events.events = EPOLLIN;
+
+    epoll_ctl(apoll, EPOLL_CTL_ADD, sock, &events);
 
     // Address initialization
     addr = new sockaddr_in();
@@ -47,7 +51,6 @@ namespace passl
   {
     close(sock);
     if (addr != nullptr) delete addr;
-    if (apoll != nullptr) delete apoll;
     if (workers != nullptr) delete[] workers;
   }
 
@@ -64,10 +67,15 @@ namespace passl
 
   void server::connection_handler()
   {
+    const size_t admeq_size = 10;
+    epoll_event adm_evs[admeq_size];
+
+    timespec admep_timeout;
+    admep_timeout.tv_nsec = 10;
 
     while (!_shutdown)
     {
-      if (poll(apoll, 1, 10) > 0 && apoll->revents & POLLIN)
+      if (epoll_wait(apoll, (epoll_event*)&adm_evs, admeq_size, 10) > 0)
       {
         int client_sock = accept(sock, NULL, NULL);
         if (client_sock > 0) admit_client(client_sock);

@@ -5,7 +5,7 @@
 #include <mutex>
 #include <thread>
 
-struct pollfd;
+struct epoll_event;
 
 namespace passl
 {
@@ -24,12 +24,18 @@ namespace passl
 
     private:
       void remove_client(int fd);
-      void handle_events();
+      void handle_events(size_t event_count);
       void client_handler();
       void resize_cap(size_t size);
       void retrieve_pubkey(session_data& client);
       void keygen_and_send(session_data& client, size_t keysize);
-      pollfd* cpoll = nullptr;
+      int cpoll = -1;
+      epoll_event* cpoll_listen_events = nullptr;
+      epoll_event* cpoll_revents = nullptr;
+      static constexpr size_t cpoll_revsize = 128;
+
+      static constexpr size_t cpoll_timeout_ms = 10;
+
       session_data* clients = nullptr;
       std::thread t;
       fatomic<size_t> client_count { 0 };
